@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>班级学情后台（演示版） · 学习实验室：状态重构</title>
+<meta name="description" content="《学习实验室：状态重构》教师端演示版：班级学情概览、学生列表与循证支持策略库（模拟示例数据）。" />
+<style>
+/* ============================================================
+   《学习实验室：状态重构》 — 共享样式
+   简约扁平 · 低饱和度 · 教育产品气质
+   ============================================================ */
+
+:root {
+  /* 底色与文字 */
+  --bg: #f5f6f3;
+  --bg-2: #eef0ea;
+  --surface: #ffffff;
+  --surface-2: #fafbf9;
+  --ink: #2b3331;
+  --ink-2: #4b5552;
+  --muted: #7d8783;
+  --line: #e2e6df;
+  --line-2: #eff1ec;
+
+  /* 三维投入语义色 */
+  --behavior: #6f92b8;  /* 行为投入 · 蓝 */
+  --cognition: #7fa87d; /* 认知投入 · 绿 */
+  --emotion: #d4a56d;   /* 情感投入 · 橙 */
+  --energy: #8fa9c4;    /* 精力值 */
+
+  /* 涨跌色（避免红色焦虑感） */
+  --pos: #8fbf9f;
+  --neg: #e2b483;
+
+  /* 主色 */
+  --accent: #4f8578;
+  --accent-2: #3f6d62;
+  --accent-soft: #e8f1ed;
+
+  --radius: 16px;
+  --radius-sm: 10px;
+  --radius-xs: 8px;
+  --shadow: 0 1px 2px rgba(43, 51, 49, .05), 0 10px 28px rgba(43, 51, 49, .06);
+  --shadow-sm: 0 1px 3px rgba(43, 51, 49, .08);
+  --maxw: 1000px;
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "PingFang SC", "Microsoft YaHei", "Hiragino Sans GB",
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", sans-serif;
+  font-size: 15px;
+  line-height: 1.75;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, h4 { margin: 0 0 .5em; font-weight: 700; line-height: 1.35; letter-spacing: .2px; }
+p { margin: 0 0 1em; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+.container { width: 100%; max-width: var(--maxw); margin: 0 auto; padding: 0 20px; }
+
+/* ---------- 顶栏 ---------- */
+.site-header {
+  position: sticky; top: 0; z-index: 40;
+  background: rgba(245, 246, 243, .88);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line);
+}
+.site-header .inner {
+  max-width: var(--maxw); margin: 0 auto; padding: 12px 20px;
+  display: flex; align-items: center; gap: 14px;
+}
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; color: var(--ink); }
+.brand .mark {
+  width: 30px; height: 30px; border-radius: 9px; flex: none;
+  background: linear-gradient(135deg, var(--accent), #7fae9f);
+  color: #fff; display: grid; place-items: center; font-size: 15px;
+}
+/* 拉丁字母标识需要更小字号才能在 30px 方块内完整显示 */
+.brand .mark.lab { font-size: 12.5px; letter-spacing: -.3px; font-weight: 700; }
+.brand .sub { color: var(--muted); font-weight: 500; font-size: 12.5px; }
+.site-header .spacer { flex: 1; }
+.header-nav { display: flex; align-items: center; gap: 8px; }
+
+/* ---------- 按钮 ---------- */
+.btn {
+  appearance: none; border: 1px solid var(--line);
+  background: var(--surface); color: var(--ink-2);
+  padding: 10px 18px; border-radius: 999px;
+  font-size: 14px; font-weight: 600; font-family: inherit;
+  cursor: pointer; transition: .18s ease;
+  display: inline-flex; align-items: center; gap: 7px; line-height: 1;
+}
+.btn:hover { border-color: #cdd4ca; background: var(--surface-2); transform: translateY(-1px); }
+.btn:active { transform: translateY(0); }
+.btn-primary {
+  background: var(--accent); border-color: var(--accent); color: #fff;
+  box-shadow: 0 6px 16px rgba(79, 133, 120, .22);
+}
+.btn-primary:hover { background: var(--accent-2); border-color: var(--accent-2); }
+.btn-ghost { background: transparent; border-color: transparent; color: var(--ink-2); }
+.btn-ghost:hover { background: var(--bg-2); }
+.btn-sm { padding: 7px 13px; font-size: 13px; }
+.btn:disabled, .btn[disabled] {
+  opacity: .45; cursor: not-allowed; transform: none !important;
+  box-shadow: none;
+}
+
+/* ---------- 卡片 ---------- */
+.card {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 22px 24px; box-shadow: var(--shadow-sm);
+}
+.card + .card { margin-top: 16px; }
+
+/* ---------- 徽标 / 标签 ---------- */
+.chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 10px; border-radius: 999px;
+  font-size: 12px; font-weight: 600; color: var(--ink-2);
+  background: var(--bg-2); border: 1px solid var(--line);
+}
+.chip-accent { background: var(--accent-soft); border-color: #d5e6df; color: var(--accent-2); }
+.chip-evi { background: #eef2f8; border-color: #dde6f1; color: #5c7799; }
+
+/* ---------- 首页 ---------- */
+.hero { padding: 54px 0 30px; text-align: center; }
+.hero h1 { font-size: 34px; letter-spacing: 1px; }
+.hero h2 { font-size: 15px; font-weight: 500; color: var(--muted); letter-spacing: 2px; margin-bottom: 22px; }
+.hero .lead { max-width: 620px; margin: 0 auto 26px; color: var(--ink-2); }
+
+.notice {
+  max-width: 720px; margin: 0 auto 26px; text-align: left;
+  background: var(--accent-soft); border: 1px solid #d5e6df;
+  border-radius: var(--radius-sm); padding: 14px 18px;
+  font-size: 13.5px; color: var(--accent-2);
+}
+.notice b { color: var(--accent-2); }
+.notice .meta { color: #5f7a72; font-size: 12.5px; }
+
+.hero-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-bottom: 8px; }
+
+/* details 折叠 */
+details.fold {
+  max-width: 720px; margin: 26px auto 0; text-align: left;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius-sm); overflow: hidden;
+}
+details.fold > summary {
+  cursor: pointer; padding: 14px 18px; font-weight: 600; color: var(--ink-2);
+  list-style: none; display: flex; align-items: center; gap: 8px;
+}
+details.fold > summary::-webkit-details-marker { display: none; }
+details.fold > summary::after { content: "▾"; margin-left: auto; color: var(--muted); transition: .2s; }
+details.fold[open] > summary::after { transform: rotate(180deg); }
+details.fold .fold-body { padding: 0 18px 18px; border-top: 1px solid var(--line-2); margin-top: -1px; }
+details.fold .fold-body ol { padding-left: 20px; margin: 14px 0 0; }
+details.fold .fold-body li { margin-bottom: 8px; color: var(--ink-2); }
+details.fold .fold-body ul { margin: 6px 0 0; padding-left: 20px; color: var(--muted); }
+
+/* ---------- 面板标题 ---------- */
+.section-title { font-size: 13px; font-weight: 700; color: var(--muted); letter-spacing: 2px; margin: 34px 0 14px; text-align: center; }
+
+/* ---------- 学期进度 ---------- */
+.weekbar { display: flex; align-items: center; gap: 14px; margin-bottom: 6px; flex-wrap: wrap; }
+.weekbar .cells { flex: 1; display: flex; gap: 5px; min-width: 220px; }
+.weekbar .cell {
+  flex: 1; height: 9px; border-radius: 999px; background: var(--bg-2);
+  border: 1px solid var(--line); transition: .25s;
+}
+.weekbar .cell.done { background: #cfe0d9; border-color: #c4d9d0; }
+.weekbar .cell.current { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79, 133, 120, .16); }
+.weekbar .label { font-size: 13px; color: var(--muted); font-weight: 600; white-space: nowrap; }
+.weekbar .label b { color: var(--ink); }
+
+/* ---------- 状态数值面板 ---------- */
+.stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.stat { background: var(--surface-2); border: 1px solid var(--line-2); border-radius: var(--radius-sm); padding: 13px 14px; position: relative; }
+.stat .top { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
+.stat .name { font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.stat .val { font-size: 19px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+.stat .bar { height: 8px; border-radius: 999px; background: #e9ece6; overflow: hidden; }
+.stat .bar > i { display: block; height: 100%; border-radius: 999px; transition: width .55s cubic-bezier(.2, .8, .3, 1); }
+.stat.behavior .bar > i { background: var(--behavior); }
+.stat.cognition .bar > i { background: var(--cognition); }
+.stat.emotion .bar > i { background: var(--emotion); }
+
+.energy { margin-top: 14px; background: var(--surface-2); border: 1px solid var(--line-2); border-radius: var(--radius-sm); padding: 13px 14px; }
+.energy .top { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
+.energy .name { font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.energy .val { font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.energy .bar { height: 8px; border-radius: 999px; background: #e9ece6; overflow: hidden; }
+.energy .bar > i { display: block; height: 100%; background: var(--energy); border-radius: 999px; transition: width .55s cubic-bezier(.2, .8, .3, 1); }
+
+/* 浮动数值提示 */
+.delta {
+  position: absolute; right: 12px; top: 34px; font-size: 12.5px; font-weight: 700;
+  pointer-events: none; animation: floatUp 1.5s ease forwards; white-space: nowrap;
+}
+.delta.pos { color: #5f9b74; }
+.delta.neg { color: #c98f4f; }
+@keyframes floatUp {
+  0% { opacity: 0; transform: translateY(4px); }
+  18% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-18px); }
+}
+
+/* ---------- 行动选择区 ---------- */
+.action-groups { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.group-title { font-size: 12.5px; font-weight: 700; color: var(--muted); letter-spacing: 1.5px; margin-bottom: 9px; }
+.action-list { display: flex; flex-direction: column; gap: 10px; }
+.action {
+  position: relative; text-align: left; cursor: pointer; font-family: inherit;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm);
+  padding: 13px 40px 13px 15px; transition: .18s; color: var(--ink);
+}
+.action:hover:not(:disabled) { border-color: #cfd8ce; box-shadow: var(--shadow-sm); transform: translateY(-1px); }
+.action .t { font-weight: 600; font-size: 14px; }
+.action .d { font-size: 12px; color: var(--muted); margin-top: 3px; }
+.action .cost {
+  position: absolute; right: 10px; bottom: 9px; font-size: 11.5px; font-weight: 700;
+  color: #6a8299; background: #eef2f6; border: 1px solid #e0e7ee;
+  padding: 1px 7px; border-radius: 999px;
+}
+.action:disabled { opacity: .5; cursor: not-allowed; background: var(--surface-2); }
+.action:disabled::after {
+  content: "精力不足"; position: absolute; right: 9px; top: 9px;
+  font-size: 10.5px; color: #b08a5f; background: #f6ede1; border: 1px solid #ecdcc6;
+  padding: 1px 7px; border-radius: 999px;
+}
+
+/* ---------- 事件弹层 ---------- */
+.overlay {
+  position: fixed; inset: 0; z-index: 80; background: rgba(38, 45, 43, .38);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+  opacity: 0; visibility: hidden; transition: .2s;
+}
+.overlay.show { opacity: 1; visibility: visible; }
+.dialog {
+  width: 100%; max-width: 560px; background: var(--surface);
+  border-radius: var(--radius); box-shadow: 0 24px 60px rgba(30, 38, 36, .22);
+  padding: 26px 26px 22px; position: relative;
+  transform: translateY(10px) scale(.98); transition: .22s;
+  max-height: 88vh; overflow: auto;
+}
+.overlay.show .dialog { transform: translateY(0) scale(1); }
+.dialog .tag { display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: 1px; color: var(--accent-2); background: var(--accent-soft); border: 1px solid #d5e6df; padding: 2px 10px; border-radius: 999px; margin-bottom: 12px; }
+.dialog .tag.evi { color: #5c7799; background: #eef2f8; border-color: #dde6f1; }
+.dialog h3 { font-size: 19px; }
+.dialog .scene { color: var(--ink-2); background: var(--surface-2); border: 1px solid var(--line-2); border-radius: var(--radius-sm); padding: 13px 15px; font-size: 14px; }
+.dialog .choices { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+.choice {
+  text-align: left; cursor: pointer; font-family: inherit; color: var(--ink);
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm);
+  padding: 13px 15px; transition: .16s;
+}
+.choice:hover { border-color: var(--accent); background: var(--accent-soft); }
+.choice .ct { font-weight: 600; font-size: 14px; }
+.choice .ce { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.choice .ce b { color: #5f9b74; font-weight: 700; }
+.choice .ce b.down { color: #c98f4f; }
+.dialog .source { font-size: 12px; color: var(--muted); margin-top: 16px; text-align: right; }
+
+/* 事件结果提示 */
+.toast {
+  position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%) translateY(10px);
+  background: var(--ink); color: #fff; font-size: 13.5px; font-weight: 500;
+  padding: 10px 18px; border-radius: 999px; z-index: 90;
+  opacity: 0; transition: .25s; box-shadow: var(--shadow); pointer-events: none;
+  max-width: 88vw; text-align: center;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ---------- 结局复盘 ---------- */
+.path-banner {
+  background: linear-gradient(135deg, #eef4f1, #f6f2ea);
+  border: 1px solid #e0e8e2; border-radius: var(--radius);
+  padding: 26px 26px 22px; text-align: center;
+}
+.path-banner .k { font-size: 12.5px; letter-spacing: 2px; color: var(--muted); font-weight: 700; }
+.path-banner .p { font-size: 27px; font-weight: 700; margin: 8px 0 4px; color: var(--ink); }
+.path-banner .score { color: var(--ink-2); font-size: 14px; }
+.path-banner .score b { font-size: 22px; color: var(--accent-2); }
+
+.chart-wrap { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 16px 8px; box-shadow: var(--shadow-sm); }
+.chart-legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12.5px; color: var(--ink-2); margin-bottom: 6px; padding-left: 4px; }
+.chart-legend i { display: inline-block; width: 14px; height: 4px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+.chart-note { font-size: 12.5px; color: var(--muted); text-align: center; margin: 4px 0 12px; }
+svg.chart { width: 100%; height: auto; display: block; overflow: visible; }
+
+.review-3 { display: grid; grid-template-columns: 1fr; gap: 14px; }
+.review-3 .blk { background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: var(--radius-sm); padding: 16px 18px; }
+.review-3 .blk h4 { font-size: 14.5px; margin-bottom: 6px; color: var(--ink); display: flex; align-items: center; gap: 8px; }
+.review-3 .blk h4 .n { width: 22px; height: 22px; border-radius: 7px; background: var(--accent-soft); color: var(--accent-2); display: grid; place-items: center; font-size: 12px; }
+.review-3 .blk p { margin: 0; color: var(--ink-2); font-size: 14px; }
+.review-3 .blk ol { margin: 6px 0 0; padding-left: 4px; list-style: none; }
+.review-3 .blk ol li { margin-bottom: 10px; font-size: 14px; color: var(--ink-2); }
+.review-3 .blk ol li b { color: var(--ink); }
+
+.ending-actions { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin: 22px 0 10px; }
+
+/* ---------- AI 督导 ---------- */
+.fab {
+  position: fixed; right: 22px; bottom: 22px; z-index: 60;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 12px 18px; border-radius: 999px; border: 1px solid var(--accent);
+  background: var(--accent); color: #fff; font-weight: 600; font-size: 14px; font-family: inherit;
+  cursor: pointer; box-shadow: 0 10px 26px rgba(79, 133, 120, .3); transition: .18s;
+}
+.fab:hover { background: var(--accent-2); transform: translateY(-2px); }
+
+.chat {
+  position: fixed; right: 22px; bottom: 22px; z-index: 70;
+  width: min(380px, calc(100vw - 32px)); height: min(560px, calc(100vh - 44px));
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: 0 26px 60px rgba(30, 38, 36, .24); display: flex; flex-direction: column;
+  overflow: hidden; transform: translateY(14px) scale(.98); opacity: 0; visibility: hidden; transition: .22s;
+}
+.chat.show { transform: none; opacity: 1; visibility: visible; }
+.chat header { padding: 14px 16px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 10px; background: var(--surface-2); }
+.chat header .t { font-weight: 700; font-size: 14.5px; }
+.chat header .s { font-size: 11.5px; color: var(--muted); }
+.chat header .x { margin-left: auto; cursor: pointer; color: var(--muted); border: none; background: none; font-size: 18px; line-height: 1; }
+.chat .log { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; background: var(--bg); }
+.msg { max-width: 86%; padding: 10px 13px; border-radius: 12px; font-size: 13.5px; line-height: 1.7; white-space: pre-wrap; }
+.msg.bot { align-self: flex-start; background: var(--surface); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
+.msg.user { align-self: flex-end; background: var(--accent); color: #fff; border-bottom-right-radius: 4px; }
+.chat .quick { display: flex; gap: 7px; flex-wrap: wrap; padding: 10px 12px 0; background: var(--surface); }
+.chat .quick button { font-family: inherit; font-size: 12px; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink-2); cursor: pointer; }
+.chat .quick button:hover { border-color: var(--accent); color: var(--accent-2); background: var(--accent-soft); }
+.chat .input { display: flex; gap: 8px; padding: 10px 12px 12px; background: var(--surface); border-top: 1px solid var(--line); }
+.chat .input input { flex: 1; font-family: inherit; font-size: 13.5px; padding: 10px 13px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); outline: none; }
+.chat .input input:focus { border-color: var(--accent); background: #fff; }
+.chat .input button { border: none; background: var(--accent); color: #fff; width: 40px; border-radius: 999px; cursor: pointer; font-size: 15px; }
+.chat .input button:hover { background: var(--accent-2); }
+.chat .foot { font-size: 11px; color: var(--muted); text-align: center; padding: 0 12px 9px; background: var(--surface); }
+
+/* ---------- 页脚 ---------- */
+.site-footer { border-top: 1px solid var(--line); margin-top: 48px; padding: 24px 0 40px; color: var(--muted); font-size: 12.5px; text-align: center; }
+.site-footer .links { margin-top: 6px; }
+
+/* ============================================================
+   教师端
+   ============================================================ */
+.tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--line); margin-bottom: 22px; flex-wrap: wrap; }
+.tab {
+  font-family: inherit; font-size: 14px; font-weight: 600; color: var(--muted);
+  background: none; border: none; border-bottom: 2px solid transparent;
+  padding: 11px 15px; cursor: pointer; margin-bottom: -1px;
+}
+.tab:hover { color: var(--ink-2); }
+.tab.active { color: var(--accent-2); border-bottom-color: var(--accent); }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; animation: fadeIn .3s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+.kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 16px 18px; box-shadow: var(--shadow-sm); }
+.kpi .k { font-size: 12.5px; color: var(--muted); font-weight: 600; }
+.kpi .v { font-size: 26px; font-weight: 700; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.kpi .v small { font-size: 13px; color: var(--muted); font-weight: 600; margin-left: 3px; }
+.kpi .up { color: #5f9b74; font-size: 12.5px; font-weight: 600; }
+
+.panel-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+
+table.list { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+table.list th, table.list td { text-align: left; padding: 11px 12px; border-bottom: 1px solid var(--line-2); }
+table.list th { font-size: 12px; color: var(--muted); font-weight: 700; letter-spacing: .5px; background: var(--surface-2); }
+table.list tbody tr:hover { background: var(--surface-2); cursor: pointer; }
+table.list td .bar-mini { width: 88px; height: 6px; border-radius: 999px; background: #e9ece6; overflow: hidden; display: inline-block; vertical-align: middle; }
+table.list td .bar-mini > i { display: block; height: 100%; }
+
+.filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.filters button {
+  font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+  padding: 6px 14px; border-radius: 999px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--ink-2);
+}
+.filters button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.strategy { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 16px 18px; }
+.strategy h4 { font-size: 15px; display: flex; align-items: center; gap: 8px; }
+.strategy .slist { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+.strategy .sitem { background: var(--surface-2); border: 1px solid var(--line-2); border-radius: var(--radius-xs); padding: 11px 13px; font-size: 13.5px; }
+.strategy .sitem .meta { font-size: 12px; color: var(--muted); margin-top: 5px; }
+.strategy .warn { margin-top: 10px; font-size: 12.5px; color: #a0764c; background: #f8f1e7; border: 1px solid #efe1cd; border-radius: var(--radius-xs); padding: 9px 12px; }
+.strategy-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+/* 教师端学生详情 */
+.sdetail { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; }
+
+/* ---------- 响应式 ---------- */
+@media (max-width: 820px) {
+  .stat-grid, .action-groups, .kpi-grid, .panel-grid, .strategy-grid { grid-template-columns: 1fr; }
+  .kpi-grid { grid-template-columns: 1fr 1fr; }
+  .hero h1 { font-size: 27px; }
+  .action-groups { gap: 18px; }
+  .brand .sub { display: none; }
+}
+@media (max-width: 520px) {
+  body { font-size: 14.5px; }
+  .card { padding: 18px 16px; }
+  .container { padding: 0 14px; }
+  .kpi-grid { grid-template-columns: 1fr 1fr; }
+  .chat { right: 8px; bottom: 8px; }
+  .action-groups { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="inner">
+    <a class="brand" href="teacher.html">
+      <span class="mark">师</span>
+      <span>班级学情后台<span class="sub">· 演示版</span></span>
+    </a>
+    <span class="spacer"></span>
+    <nav class="header-nav">
+      <a class="btn btn-ghost btn-sm" href="index.html">← 返回学生端</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="container" style="padding-top:26px">
+    <h1 style="font-size:24px">班级学情后台 <span style="font-size:14px;color:var(--muted);font-weight:500">| 2024 秋季学期示例数据</span></h1>
+    <p style="color:var(--muted);font-size:13.5px;margin-top:-4px">
+      数据说明：基于研究样本特征模拟生成，仅作功能演示，不含任何真实学生信息。
+    </p>
+
+    <div class="tabs" style="margin-top:20px">
+      <button class="tab active" data-tab="overview" type="button">班级学情概览</button>
+      <button class="tab" data-tab="students" type="button">学生列表</button>
+      <button class="tab" data-tab="strategy" type="button">支持策略库</button>
+    </div>
+
+    <!-- ============ 页面 1：班级学情概览 ============ -->
+    <section class="tab-panel active" id="panel-overview">
+      <div class="kpi-grid" id="kpiGrid"></div>
+
+      <div class="panel-grid">
+        <div class="card">
+          <h3 style="font-size:16px">三维投入分布</h3>
+          <div id="barHost"></div>
+        </div>
+        <div class="card">
+          <h3 style="font-size:16px">首要问题类型分布</h3>
+          <div id="pieHost"></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:16px">
+        <h3 style="font-size:16px">近 8 周投入趋势</h3>
+        <div class="chart-legend">
+          <span><i style="background:var(--behavior)"></i>行为投入</span>
+          <span><i style="background:var(--cognition)"></i>认知投入</span>
+          <span><i style="background:var(--emotion)"></i>情感投入</span>
+        </div>
+        <div id="lineHost"></div>
+        <div class="chart-note">班级均值，每周更新一次</div>
+      </div>
+    </section>
+
+    <!-- ============ 页面 2：学生列表 ============ -->
+    <section class="tab-panel" id="panel-students">
+      <div class="filters" id="filters"></div>
+      <div class="card" style="padding:8px 6px">
+        <table class="list">
+          <thead>
+            <tr>
+              <th>学生编号</th><th>当前状态</th><th>三维得分</th>
+              <th>主要问题</th><th>变化趋势</th>
+            </tr>
+          </thead>
+          <tbody id="studentRows"></tbody>
+        </table>
+      </div>
+      <div class="sdetail" id="studentDetail" style="margin-top:16px">
+        <p style="color:var(--muted);font-size:13.5px;margin:0">点击上方任意一位学生，查看其个人投入轨迹与路径分型。</p>
+      </div>
+    </section>
+
+    <!-- ============ 页面 3：支持策略库 ============ -->
+    <section class="tab-panel" id="panel-strategy">
+      <p style="color:var(--ink-2);font-size:13.5px">
+        按问题分类整理，每条策略均标注适用场景、实施主体与注意事项，供教师与辅导员参考。
+      </p>
+      <div class="strategy-grid" id="strategyGrid"></div>
+    </section>
+
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <div>学习实验室：状态重构 · 教师端演示版</div>
+    <div class="links">研究依据：本科大创项目《大学生低学习投入的形成机制研究——基于扎根理论的质性考察》 · <a href="index.html">学生端</a></div>
+    <div style="margin-top:6px">本页全部数据为模拟示例，仅用于展示 B 端应用价值，不含真实后台与真实学生信息。</div>
+  </div>
+</footer>
+
+<script>
+/* ============================================================
+   学习实验室：状态重构 — 教师端演示版
+   静态演示，全部为模拟示例数据，无真实后台
+   ============================================================ */
+(function () {
+  'use strict';
+
+  var $ = function (s) { return document.querySelector(s); };
+
+  /* 确定性随机（保证每次刷新数据一致） */
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      var t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  var rand = mulberry32(20241009);
+  function ri(min, max) { return Math.round(min + rand() * (max - min)); }
+
+  var PATH_NAMES = [
+    '任务积压型连锁下滑', '价值感缺失型缓慢脱离', '挫败累积型自我放弃',
+    '最低维持型平稳运行', '策略调整型逐步恢复', '人际支持型重新投入', '目标转向型主动重构'
+  ];
+  var PROBLEMS = ['任务拖延', '理解困难', '价值感缺失', '人际支持不足', '其他'];
+
+  /* ----------------------------------------------------------
+     生成 40 位学生的模拟数据（低投入 8 人 = 20%）
+     ---------------------------------------------------------- */
+  function makeStudents() {
+    var list = [];
+    // 类别配额：高投入 9 / 中等 20 / 低投入 8 / 需关注 3（需关注从低投入中标记）
+    var plan = [];
+    var i;
+    for (i = 0; i < 9; i++) plan.push('high');
+    for (i = 0; i < 20; i++) plan.push('mid');
+    for (i = 0; i < 8; i++) plan.push('low');
+    for (i = 0; i < 3; i++) plan.push('watch');
+    // 打散
+    plan.sort(function () { return rand() - 0.5; });
+
+    plan.forEach(function (cat, idx) {
+      var b, c, e;
+      if (cat === 'high') { b = ri(76, 90); c = ri(74, 88); e = ri(72, 86); }
+      else if (cat === 'mid') { b = ri(58, 72); c = ri(57, 71); e = ri(56, 72); }
+      else if (cat === 'low') { b = ri(44, 56); c = ri(43, 55); e = ri(45, 57); }
+      else { b = ri(30, 42); c = ri(32, 44); e = ri(28, 42); }
+
+      // 主要问题：取最低维度
+      var min = Math.min(b, c, e), problem;
+      if (min === b) problem = '任务拖延';
+      else if (min === c) problem = '理解困难';
+      else problem = rand() > 0.5 ? '价值感缺失' : '人际支持不足';
+
+      // 8 周轨迹：终点对齐当前得分，向前回溯
+      var base = (b + c + e) / 3;
+      var trendDir = cat === 'high' ? 1 : (cat === 'watch' ? -1 : (rand() > 0.5 ? 1 : -1));
+      var traj = { behavior: [], cognition: [], emotion: [] };
+      var keys = { behavior: b, cognition: c, emotion: e };
+      ['behavior', 'cognition', 'emotion'].forEach(function (k) {
+        var end = keys[k], arr = [];
+        for (var w = 0; w < 8; w++) {
+          var away = (7 - w) * (trendDir * (1.2 + rand() * 1.6));
+          arr.push(Math.max(18, Math.min(96, Math.round(end - away + (rand() - 0.5) * 4))));
+        }
+        arr[7] = end;
+        traj[k] = arr;
+      });
+
+      // 趋势箭头
+      var d = traj.behavior[7] - traj.behavior[0];
+      var trend = d > 4 ? '↑ 上升' : (d < -4 ? '↓ 下降' : '→ 平稳');
+
+      // 路径分型（按当前状态与趋势粗略映射）
+      var path;
+      if (cat === 'high') path = trendDir > 0 ? PATH_NAMES[6] : PATH_NAMES[4];
+      else if (cat === 'mid') path = trendDir > 0 ? PATH_NAMES[4] : PATH_NAMES[3];
+      else if (cat === 'watch') path = problem === '理解困难' ? PATH_NAMES[2] : PATH_NAMES[0];
+      else if (problem === '任务拖延') path = PATH_NAMES[0];
+      else if (problem === '价值感缺失') path = PATH_NAMES[1];
+      else if (problem === '人际支持不足') path = PATH_NAMES[5];
+      else path = PATH_NAMES[3];
+
+      var status = cat === 'watch' ? '需关注' : (cat === 'high' ? '高投入' : (cat === 'mid' ? '中等' : '低投入'));
+
+      list.push({
+        id: 'S' + String(idx + 1).padStart(2, '0'),
+        status: status,
+        cat: cat,
+        behavior: b, cognition: c, emotion: e,
+        problem: problem,
+        trend: trend,
+        traj: traj,
+        path: path
+      });
+    });
+    return list;
+  }
+
+  var STUDENTS = makeStudents();
+
+  /* ----------------------------------------------------------
+     概览数据（按需求文档给定示例值）
+     ---------------------------------------------------------- */
+  var OVERVIEW = {
+    avg: 62,
+    lowCount: 8,
+    lowPercent: 20,
+    watchCount: 3,
+    wow: 2,
+    dims: { behavior: 61, cognition: 60, emotion: 63 },
+    problems: [
+      { name: '任务拖延', value: 35, color: '#8fb0b8' },
+      { name: '理解困难', value: 25, color: '#9fb89a' },
+      { name: '价值感缺失', value: 20, color: '#d8b489' },
+      { name: '人际支持不足', value: 15, color: '#a9a6c4' },
+      { name: '其他', value: 5, color: '#cfd4cd' }
+    ],
+    trend: {
+      behavior: [66, 65, 63, 61, 60, 59, 60, 61],
+      cognition: [65, 63, 62, 60, 58, 58, 59, 60],
+      emotion: [67, 66, 64, 63, 62, 61, 62, 63]
+    }
+  };
+
+  /* ----------------------------------------------------------
+     概览渲染
+     ---------------------------------------------------------- */
+  function renderOverview() {
+    var k = OVERVIEW;
+    $('#kpiGrid').innerHTML = '' +
+      kpi('班级综合投入均分', k.avg, '分', '') +
+      kpi('低投入状态学生', k.lowCount, '人（' + k.lowPercent + '%）', '') +
+      kpi('需重点关注', k.watchCount, '人', '') +
+      kpi('周环比变化', '↑' + k.wow, '分', 'up');
+
+    drawBar();
+    drawPie();
+    drawLine();
+  }
+
+  function kpi(label, v, unit, cls) {
+    return '<div class="kpi"><div class="k">' + label + '</div>' +
+      '<div class="v' + (cls ? ' ' + cls : '') + '">' + v + '<small>' + unit + '</small></div></div>';
+  }
+
+  /* 柱状图：三维投入分布 */
+  function drawBar() {
+    var W = 460, H = 250, padL = 40, padR = 16, padT = 18, padB = 42;
+    var iw = W - padL - padR, ih = H - padT - padB;
+    var data = [
+      { n: '行为投入', v: OVERVIEW.dims.behavior, c: '#6f92b8' },
+      { n: '认知投入', v: OVERVIEW.dims.cognition, c: '#7fa87d' },
+      { n: '情感投入', v: OVERVIEW.dims.emotion, c: '#d4a56d' }
+    ];
+    var max = 100;
+    var y = function (v) { return padT + (max - v) / max * ih; };
+    var bw = iw / data.length * 0.44;
+    var s = '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet">';
+    [0, 25, 50, 75, 100].forEach(function (v) {
+      s += '<line x1="' + padL + '" y1="' + y(v) + '" x2="' + (W - padR) + '" y2="' + y(v) + '" stroke="#eef1ec"/>';
+      s += '<text x="' + (padL - 8) + '" y="' + (y(v) + 4) + '" text-anchor="end" font-size="11" fill="#9aa39f">' + v + '</text>';
+    });
+    data.forEach(function (d, i) {
+      var cx = padL + iw / data.length * (i + 0.5);
+      var h = ih - (y(d.v) - padT);
+      s += '<rect x="' + (cx - bw / 2) + '" y="' + y(d.v) + '" width="' + bw + '" height="' + h +
+        '" rx="6" fill="' + d.c + '" opacity="0.9"><title>' + d.n + ' ' + d.v + '</title></rect>';
+      s += '<text x="' + cx + '" y="' + (y(d.v) - 8) + '" text-anchor="middle" font-size="13" font-weight="700" fill="#4b5552">' + d.v + '</text>';
+      s += '<text x="' + cx + '" y="' + (H - padB + 20) + '" text-anchor="middle" font-size="12" fill="#7d8783">' + d.n + '</text>';
+    });
+    s += '</svg>';
+    $('#barHost').innerHTML = s;
+  }
+
+  /* 饼图：首要问题类型分布 */
+  function drawPie() {
+    var W = 460, H = 250, cx = 150, cy = 128, r = 82, ir = 46;
+    var total = OVERVIEW.problems.reduce(function (a, b) { return a + b.value; }, 0);
+    var ang = -Math.PI / 2;
+    var s = '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet">';
+    OVERVIEW.problems.forEach(function (p) {
+      var a2 = ang + p.value / total * Math.PI * 2;
+      var large = (a2 - ang) > Math.PI ? 1 : 0;
+      var x1 = cx + r * Math.cos(ang), y1 = cy + r * Math.sin(ang);
+      var x2 = cx + r * Math.cos(a2), y2 = cy + r * Math.sin(a2);
+      var x3 = cx + ir * Math.cos(a2), y3 = cy + ir * Math.sin(a2);
+      var x4 = cx + ir * Math.cos(ang), y4 = cy + ir * Math.sin(ang);
+      s += '<path d="M' + x1 + ',' + y1 + ' A' + r + ',' + r + ' 0 ' + large + ' 1 ' + x2 + ',' + y2 +
+        ' L' + x3 + ',' + y3 + ' A' + ir + ',' + ir + ' 0 ' + large + ' 0 ' + x4 + ',' + y4 + ' Z" fill="' + p.color + '">' +
+        '<title>' + p.name + ' ' + p.value + '%</title></path>';
+      ang = a2;
+    });
+    s += '<text x="' + cx + '" y="' + (cy - 2) + '" text-anchor="middle" font-size="13" fill="#7d8783">首要问题</text>';
+    s += '<text x="' + cx + '" y="' + (cy + 18) + '" text-anchor="middle" font-size="15" font-weight="700" fill="#4b5552">类型分布</text>';
+    // 图例
+    OVERVIEW.problems.forEach(function (p, i) {
+      var ly = 54 + i * 30;
+      s += '<rect x="278" y="' + (ly - 9) + '" width="11" height="11" rx="3" fill="' + p.color + '"/>';
+      s += '<text x="298" y="' + ly + '" font-size="12.5" fill="#4b5552">' + p.name + '</text>';
+      s += '<text x="438" y="' + ly + '" font-size="12.5" font-weight="700" text-anchor="end" fill="#7d8783">' + p.value + '%</text>';
+    });
+    s += '</svg>';
+    $('#pieHost').innerHTML = s;
+  }
+
+  /* 折线图：近 8 周趋势 */
+  function drawLine() {
+    var W = 900, H = 300, padL = 42, padR = 18, padT = 16, padB = 40;
+    var iw = W - padL - padR, ih = H - padT - padB;
+    var x = function (i) { return padL + i / 7 * iw; };
+    var y = function (v) { return padT + (100 - v) / 100 * ih; };
+    var s = '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet">';
+    [0, 25, 50, 75, 100].forEach(function (v) {
+      s += '<line x1="' + padL + '" y1="' + y(v) + '" x2="' + (W - padR) + '" y2="' + y(v) + '" stroke="#eef1ec"/>';
+      s += '<text x="' + (padL - 8) + '" y="' + (y(v) + 4) + '" text-anchor="end" font-size="11" fill="#9aa39f">' + v + '</text>';
+    });
+    for (var i = 0; i < 8; i++) {
+      s += '<text x="' + x(i) + '" y="' + (H - padB + 18) + '" text-anchor="middle" font-size="11" fill="#9aa39f">第' + (i + 1) + '周</text>';
+    }
+    [['behavior', '#6f92b8'], ['cognition', '#7fa87d'], ['emotion', '#d4a56d']].forEach(function (pair) {
+      var arr = OVERVIEW.trend[pair[0]];
+      var pts = arr.map(function (v, i) { return x(i) + ',' + y(v); }).join(' ');
+      s += '<polyline points="' + pts + '" fill="none" stroke="' + pair[1] + '" stroke-width="2.5" stroke-linejoin="round"/>';
+      arr.forEach(function (v, i) {
+        s += '<circle cx="' + x(i) + '" cy="' + y(v) + '" r="3.2" fill="#fff" stroke="' + pair[1] + '" stroke-width="2"/>';
+      });
+    });
+    s += '</svg>';
+    $('#lineHost').innerHTML = s;
+  }
+
+  /* ----------------------------------------------------------
+     页面 2：学生列表
+     ---------------------------------------------------------- */
+  var FILTERS = ['全部', '高投入', '中等', '低投入', '需关注'];
+  var activeFilter = '全部';
+
+  function renderFilters() {
+    $('#filters').innerHTML = FILTERS.map(function (f) {
+      return '<button type="button" data-f="' + f + '" class="' + (f === activeFilter ? 'active' : '') + '">' + f + '</button>';
+    }).join('');
+    $('#filters').querySelectorAll('button').forEach(function (b) {
+      b.addEventListener('click', function () {
+        activeFilter = b.getAttribute('data-f');
+        renderFilters();
+        renderStudents();
+      });
+    });
+  }
+
+  function statusChip(st) {
+    var map = { '高投入': 'chip-accent', '中等': '', '低投入': '', '需关注': '' };
+    var color = st === '高投入' ? '' :
+      st === '需关注' ? 'style="color:#a0764c;background:#f8f1e7;border-color:#efe1cd"' :
+      st === '低投入' ? 'style="color:#8a6f4a;background:#f6efe4;border-color:#ece0cd"' : '';
+    return '<span class="chip" ' + color + '>' + st + '</span>';
+  }
+
+  function barMini(v, color) {
+    return '<span class="bar-mini"><i style="width:' + v + '%;background:' + color + '"></i></span>';
+  }
+
+  function renderStudents() {
+    var rows = STUDENTS.filter(function (s) {
+      if (activeFilter === '全部') return true;
+      return s.status === activeFilter;
+    });
+    $('#studentRows').innerHTML = rows.map(function (s) {
+      var avg = Math.round((s.behavior + s.cognition + s.emotion) / 3);
+      return '<tr data-id="' + s.id + '">' +
+        '<td><b>' + s.id + '</b></td>' +
+        '<td>' + statusChip(s.status) + '</td>' +
+        '<td>' +
+          barMini(s.behavior, '#6f92b8') + ' ' + s.behavior + '&nbsp;&nbsp;' +
+          barMini(s.cognition, '#7fa87d') + ' ' + s.cognition + '&nbsp;&nbsp;' +
+          barMini(s.emotion, '#d4a56d') + ' ' + s.emotion +
+          ' <span style="color:var(--muted)">（均 ' + avg + '）</span>' +
+        '</td>' +
+        '<td>' + s.problem + '</td>' +
+        '<td>' + s.trend + '</td>' +
+        '</tr>';
+    }).join('');
+    $('#studentRows').querySelectorAll('tr').forEach(function (tr) {
+      tr.addEventListener('click', function () { showStudent(tr.getAttribute('data-id')); });
+    });
+  }
+
+  function showStudent(id) {
+    var s = STUDENTS.find(function (x) { return x.id === id; });
+    if (!s) return;
+    var W = 620, H = 200, padL = 34, padR = 12, padT = 12, padB = 30;
+    var iw = W - padL - padR, ih = H - padT - padB;
+    var x = function (i) { return padL + i / 7 * iw; };
+    var y = function (v) { return padT + (100 - v) / 100 * ih; };
+    var svg = '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet">';
+    [25, 50, 75].forEach(function (v) {
+      svg += '<line x1="' + padL + '" y1="' + y(v) + '" x2="' + (W - padR) + '" y2="' + y(v) + '" stroke="#eef1ec"/>';
+      svg += '<text x="' + (padL - 6) + '" y="' + (y(v) + 4) + '" text-anchor="end" font-size="10" fill="#9aa39f">' + v + '</text>';
+    });
+    [['behavior', '#6f92b8'], ['cognition', '#7fa87d'], ['emotion', '#d4a56d']].forEach(function (pair) {
+      var arr = s.traj[pair[0]];
+      var pts = arr.map(function (v, i) { return x(i) + ',' + y(v); }).join(' ');
+      svg += '<polyline points="' + pts + '" fill="none" stroke="' + pair[1] + '" stroke-width="2.2"/>';
+    });
+    for (var i = 0; i < 8; i++) {
+      svg += '<text x="' + x(i) + '" y="' + (H - padB + 16) + '" text-anchor="middle" font-size="10" fill="#9aa39f">W' + (i + 1) + '</text>';
+    }
+    svg += '</svg>';
+
+    $('#studentDetail').innerHTML = '' +
+      '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">' +
+        '<h3 style="margin:0;font-size:17px">学生 ' + s.id + '</h3>' +
+        statusChip(s.status) +
+        '<span class="chip chip-accent">路径分型：' + s.path + '</span>' +
+        '<span class="chip">主要问题：' + s.problem + '</span>' +
+      '</div>' +
+      '<p style="color:var(--ink-2);font-size:13.5px;margin:12px 0 6px">近 8 周个人投入轨迹（行为 / 认知 / 情感）</p>' +
+      svg +
+      '<p style="color:var(--muted);font-size:12.5px;margin:6px 0 0">' +
+        '建议：结合该生路径分型，在“支持策略库”中选取对应策略，以一对一沟通方式介入，避免公开标签化。' +
+      '</p>';
+    $('#studentDetail').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  /* ----------------------------------------------------------
+     页面 3：支持策略库
+     ---------------------------------------------------------- */
+  var STRATEGIES = [
+    { problem: '任务拖延', items: [
+        { t: '作业拆解分层，提供基础版和进阶版要求', s: '适用场景：作业量较大、启动困难的学生', o: '实施主体：任课教师', n: '降低启动门槛，允许先完成基础部分' },
+        { t: '设置中期检查点，提前一周提醒进度', s: '适用场景：临近截止集中赶工', o: '实施主体：任课教师 / 助教', n: '避免期末集中积压' },
+        { t: '建立固定的短时段学习安排', s: '适用场景：日常行动投入偏低', o: '实施主体：学生本人 + 辅导员', n: '用连续性代替一次性突击' }
+      ],
+      warn: '注意：不公开批评拖延，一对一沟通进度，避免标签化。' },
+    { problem: '理解困难', items: [
+        { t: '提供前置知识清单与补学路径', s: '适用场景：课程卡顿、跟不上进度', o: '实施主体：任课教师', n: '先补缺口再推进新课' },
+        { t: '设置固定的答疑时段与提问模板', s: '适用场景：学生不敢提问、问题表述模糊', o: '实施主体：助教 / 教师', n: '降低求助的心理成本' },
+        { t: '组建同伴学习小组，进行讲解式复习', s: '适用场景：独立学习效率低', o: '实施主体：辅导员 / 班委', n: '以讲带学，提升认知参与深度' }
+      ],
+      warn: '注意：避免用“这么简单都不会”类表述，聚焦知识点本身。' },
+    { problem: '情感耗竭', items: [
+        { t: '协助调整作息，优先保证睡眠', s: '适用场景：精力长期偏低、情绪低落', o: '实施主体：辅导员', n: '恢复先于加码' },
+        { t: '降低阶段性任务量，保留最低学习量', s: '适用场景：情绪耗竭期', o: '实施主体：任课教师', n: '维持连续性而非追求量' },
+        { t: '引导使用学校心理健康支持资源', s: '适用场景：情绪问题持续影响生活', o: '实施主体：辅导员 / 心理中心', n: '超出学业辅导范围时及时转介' }
+      ],
+      warn: '注意：不做心理诊断，不进行人格评价；必要时及时转介专业支持。' },
+    { problem: '求助障碍', items: [
+        { t: '把求助规则化：卡住 30 分钟即提问', s: '适用场景：习惯独自硬扛', o: '实施主体：学生本人 + 助教', n: '将求助变成常规动作' },
+        { t: '提供低门槛的线上提问渠道', s: '适用场景：面对面求助有压力', o: '实施主体：任课教师', n: '降低开口阻力' },
+        { t: '安排学长学姐经验分享', s: '适用场景：归属感与信息不足', o: '实施主体：辅导员 / 学院', n: '提供可参照的应对经验' }
+      ],
+      warn: '注意：不把求助行为与“能力不足”关联，强调其为成熟的学习策略。' }
+  ];
+
+  function renderStrategy() {
+    $('#strategyGrid').innerHTML = STRATEGIES.map(function (g) {
+      return '<div class="strategy">' +
+        '<h4>🗂 ' + g.problem + '</h4>' +
+        '<div class="slist">' + g.items.map(function (it, i) {
+          return '<div class="sitem"><b>策略 ' + (i + 1) + '：' + it.t + '</b>' +
+            '<div class="meta">' + it.s + ' · ' + it.o + '</div>' +
+            '<div class="meta">注意事项：' + it.n + '</div></div>';
+        }).join('') + '</div>' +
+        '<div class="warn">' + g.warn + '</div>' +
+        '</div>';
+    }).join('');
+  }
+
+  /* ----------------------------------------------------------
+     标签页
+     ---------------------------------------------------------- */
+  function bindTabs() {
+    document.querySelectorAll('.tab').forEach(function (t) {
+      t.addEventListener('click', function () {
+        document.querySelectorAll('.tab').forEach(function (x) { x.classList.remove('active'); });
+        document.querySelectorAll('.tab-panel').forEach(function (p) { p.classList.remove('active'); });
+        t.classList.add('active');
+        var panel = $('#panel-' + t.getAttribute('data-tab'));
+        if (panel) panel.classList.add('active');
+      });
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    bindTabs();
+    renderOverview();
+    renderFilters();
+    renderStudents();
+    renderStrategy();
+  });
+})();
+</script>
+</body>
+</html>
